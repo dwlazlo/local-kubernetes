@@ -2,13 +2,13 @@
 
 This repo is for the documentation and config for a local Kubernetes instance running on my home network.
 
-It's not really intended for anyone else to use (of course this doesn't prevent any parts of it being useful).
+It's not really intended for anyone else to use (of course this doesn't prevent any parts of it being useful!).
 
 ## Architecture
 
 The hypervisor is KVM/Qemu running on Debian 11. 
 
-- The hypervisor has a small ZFS pool which I will use for mounts within the VMs and for VM snapshots.
+- The hypervisor has a small ZFS pool which I will use for mounts within the VMs and for snapshots of the VM image.
 - There is a pre-configured KVM bridge network on the hypervisor with the ID of `192.168.3.0/24`.
 
 The Virtual Machines (VMs) for the Kubernetes cluster will be Rocky Linux Minimal install. 
@@ -21,9 +21,9 @@ The cluster will have 3 nodes (1 `master` and 2 `worker` nodes).
 
 - Router (pfSense): 192.168.3.1
 - Hypervisor (bridge: `br0`): 192.168.3.3
-- rocky_master: 192.168.3.200
-- rocky_node01:
-- rocky_node02:
+- rocky-master: 192.168.3.200
+- rocky-node01: 192.168.3.201
+- rocky-node02: 192.168.3.202
 
 
 The VMs are each created with the following command:
@@ -47,9 +47,7 @@ $ sudo virt-install \
 
 ```
 
-Note: change the `name` of the VM to something appropriate when creating the `worker` nodes.
-
-At the moment these VMs will be installed manually via VNC over the network bridge. 
+Note: change the `name` of the VM to something appropriate when creating the `worker` nodes.At the moment these VMs will be installed manually via VNC over the network bridge. 
 
 In future a `cloud-image` could be used, or another automation solution like Terraform and Ansible together.
 
@@ -58,7 +56,6 @@ In future a `cloud-image` could be used, or another automation solution like Ter
 ### Network
 
 RockyLinux specific: 
-
 - Edit interfaces in `/etc/sysconfig/network-scripts/ifcfg-<IFACE_NAME>`
 
 - Command to restart network manager service: `systemctl restart|status NetworkManager`
@@ -66,5 +63,21 @@ RockyLinux specific:
 - Command to initialise interface is `nmcli connection up|show <IFACE_NAME>`
 
 - May need manual route configuration with `ip route add default via 192.168.3.1`
+
+#### /etc/hosts
+
+```bash
+sudo cat << EOF >> /etc/hosts
+192.168.3.200 rocky-master
+192.168.3.201 rocky-node01
+192.168.3.202 rocky-node02
+EOF
+```
+
+### Initial updates
+
+`sudo yum update`
+
+`sudo yum install vim`
 
 
