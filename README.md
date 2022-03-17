@@ -39,7 +39,7 @@ $ sudo virt-install \
 --os-type=linux \
 --os-variant=rhel8.4 \
 --disk path=/pool0/kvm/rocky_master.qcow2,format=qcow2,bus=virtio,size=50 \
---filesystem /pool0/vmdata/rocky_master,/opt/vmdata \
+--filesystem type=mount,mode=mapped,source=/pool0/vmdata/rocky_master,target=vmdata \
 --cdrom /var/lib/libvirt/isos/Rocky-8.5-x86_64-minimal.iso \
 --disk /var/lib/libvirt/isos/debian_firmware-10.9.0-amd64-netinst.iso,device=cdrom \
 --network bridge=br0,model=virtio \
@@ -66,13 +66,20 @@ RockyLinux specific:
 
 #### /etc/hosts
 
+So that each node in the cluster can find each other by name, run the following command as root on each VM:
+
 ```bash
-sudo cat << EOF >> /etc/hosts
-192.168.3.200 rocky-master
-192.168.3.201 rocky-node01
-192.168.3.202 rocky-node02
+cat << EOF >> /etc/hosts
+192.168.3.200 rocky-master.local
+192.168.3.201 rocky-node01.local
+192.168.3.202 rocky-node02.local
 EOF
 ```
+
+### Mount host filesystems in guest
+
+
+
 
 ### Initial updates
 
