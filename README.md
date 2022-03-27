@@ -106,6 +106,8 @@ An easy way to perform repetitive tasks across multiple nodes is to open multipl
 
 Now every command you type in one of these terminals will automaticaly be repeated for each member of the group.
 
+![Broadcast group of three terminals](kubernetes-group-terminator.webm)
+
 #### Disable swap
 
 ```bash
