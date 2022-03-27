@@ -53,11 +53,15 @@ In future a `cloud-image` could be used, or another automation solution like Ter
 
 ## Post-install configuration
 
+I will be following the following tutorial for the installation:
+
+- https://www.linuxtechi.com/install-kubernetes-cluster-on-rocky-linux/
+
 ### Network
 
 RockyLinux specific: 
 - Edit interfaces in `/etc/sysconfig/network-scripts/ifcfg-<IFACE_NAME>`
-
+	- This file allows you to set the IP, DNS Server, DHCP/STATIC, automatically enabling IF on boot, etc
 - Command to restart network manager service: `systemctl restart|status NetworkManager`
 
 - Command to initialise interface is `nmcli connection up|show <IFACE_NAME>`
@@ -78,8 +82,9 @@ EOF
 
 ### Mount host filesystems in guest
 
+`9p` is not supported in the Rocky/RHEL kernel as far as I can tell. Will save this issue for later as I might need to recompile or source a non-standard kernel.
 
-
+- [ ] resolve plan9 filesystem in Rocky
 
 ### Initial updates
 
@@ -87,4 +92,81 @@ EOF
 
 `sudo yum install vim`
 
+### Disable Swap on each VM
+
+**Perform these steps in each node:**
+
+An easy way to perform repetitive tasks across multiple nodes is to open multiple terminals, one for each node, and then group them together so that typing commands can be done on all nodes at once. 
+
+1. Open three terminals
+2. SSH into each node, one node per terminal
+3. Using the Terminator terminal emulator, right click for the menu and navigate to `grouping > new group`,  create a new broadcast group called `kubernetes` (you can call it whatever you like).
+4. Right click on each terminal, navigate to `grouping` and select group `kubernetes`
+5. Right click on each terminal, navigate to `grouping` and select `broadcast to group`
+
+Now every command you type in one of these terminals will automaticaly be repeated for each member of the group.
+
+#### Disable swap
+
+```bash
+sudo swapoff -a
+```
+
+Comment the start of the `swap` entry in `etc/fstab`:
+
+```bash
+sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+```
+
+Reload systemd daemons:
+
+```bash
+sudo systemctl daemon-reload
+```
+
+Change Selinux policy to `permissive`
+```bash
+ sudo setenforce 0
+ sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+```
+
+### Firewall settings: Master node
+
+These have to be run as separate commands:
+
+```bash
+sudo firewall-cmd --permanent --add-port=6443/tcp
+sudo firewall-cmd --permanent --add-port=2379-2380/tcp
+sudo firewall-cmd --permanent --add-port=10250/tcp
+sudo firewall-cmd --permanent --add-port=10251/tcp
+sudo firewall-cmd --permanent --add-port=10252/tcp
+sudo firewall-cmd --reload
+sudo modprobe br_netfilter
+sudo sh -c "echo '1' > /proc/sys/net/bridge/bridge-nf-call-iptables"
+sudo sh -c "echo '1' > /proc/sys/net/ipv4/ip_forward"
+```
+
+### Firewall settings: Worker nodes
+
+Consider using a group broadcast for each worker node for these commands:
+
+```bash
+sudo firewall-cmd --permanent --add-port=10250/tcp
+sudo firewall-cmd --permanent --add-port=30000-32767/tcp                                                  
+sudo firewall-cmd --reload
+sudo modprobe br_netfilter
+sudo sh -c "echo '1' > /proc/sys/net/bridge/bridge-nf-call-iptables"
+sudo sh -c "echo '1' > /proc/sys/net/ipv4/ip_forward"
+```
+
+### Install Docker on all nodes (Master and Workers)
+
+```bash
+# install
+sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+sudo dnf install docker-ce -y
+# enable
+sudo systemctl start docker
+sudo systemctl enable docker
+```
 
