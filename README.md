@@ -264,30 +264,80 @@ sudo dnf install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
 sudo systemctl enable --now kubelet
 ```
 
-!!! note
-   as per the official documentation, `The kubelet is now restarting every few seconds, as it waits in a crashloop for kubeadm to tell it what to do.`
+Note:
+-  as per the official documentation, `The kubelet is now restarting every few seconds, as it waits in a crashloop for kubeadm to tell it what to do.`
 
 
 ### Master node: kubeadm init
 
-On the master node, initialise kubeadm
+On the master node, initialise `kubeadm`, performing a `dry-run` first to check outputs and any errors.
 
-perform a `dry-run` first to check outputs and any errors.
+The `--pod-network-cidr` argument is based on the `flannel` CNI plugin requirements below. Before performing the `kubeadm init` command, ensure that you have chosen a CNI plugin and can incorporate any requirements in the `init` stage. 
 
 ```bash
-sudo kubeadm init --dry-run --cri-socket=/var/run/crio-crio.sock
+sudo kubeadm init --dry-run --cri-socket=/var/run/crio/crio.sock --pod-network-cidr=10.244.0.0/16
 ```
 
 If no errors then perform the `init` command
 
 ```bash
-sudo kubeadm init --cri-socket=/var/run/crio-crio.sock
+sudo kubeadm init --cri-socket=/var/run/crio/crio.sock --pod-network-cidr=10.244.0.0/16
 ```
 
-Make note of any commands suggested in the output, especially the `kubeadm join` command, to be run on each node.
-
-You will also need to install a networking plugin.
+Make note of any commands suggested in the output, especially the `kubeadm join` command, to be run on each node. This ensures that the worker nodes use the appropriate PKI settings to authenticate with the master node.
 
 
+The `kubeadm init` output will look something like this:
 
+```bash
+Your Kubernetes control-plane has initialized successfully!
+
+To start using your cluster, you need to run the following as a regular user:
+
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+You should now deploy a Pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  /docs/concepts/cluster-administration/addons/
+
+You can now join any number of machines by running the following on each node
+as root:
+
+  kubeadm join <control-plane-host>:<control-plane-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
+```
+
+Pay attention to any recommendations, for example the commands to start using the cluster as a regular user but copying the config to your home directory.
+
+If you prefer to run as root you can also run
+
+`export KUBECONFIG=/etc/kubernetes/admin.conf`
+
+### Container Network Interface (CNI)
+
+The CNI provides the networking between containers on the various nodes.
+
+You will need to choose and install a CNI plugin: I will be installing `flannel`.
+
+You can install the CNI plugin using
+
+`kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml`
+
+this will create the required objects for `flannel` to run:
+
+```
+podsecuritypolicy
+clusterrole
+clusterrolebinding
+serviceaccount
+configmap
+daemonset
+```
+
+Check that everything is running by 
+
+```
+kubectl get all -n kube-system
+```
 
