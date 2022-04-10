@@ -161,14 +161,133 @@ sudo sh -c "echo '1' > /proc/sys/net/bridge/bridge-nf-call-iptables"
 sudo sh -c "echo '1' > /proc/sys/net/ipv4/ip_forward"
 ```
 
-### Install Docker on all nodes (Master and Workers)
+### Install the container runtime (`CRI-O`)
+
+- https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+
+I will be installing the `cri-o` container runtime instead of `docker-engine`.
+
+Ensure that the required system settings and modules are persistent:
 
 ```bash
-# install
-sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-sudo dnf install docker-ce -y
-# enable
-sudo systemctl start docker
-sudo systemctl enable docker
+cat <<EOF | sudo tee /etc/modules-load.d/crio.conf
+overlay
+br_netfilter
+EOF
 ```
+
+enable the modules:
+
+```bash
+sudo modprobe overlay
+sudo modprobe br_netfilter
+```
+
+Enable ipv4 forwarding and bridge:
+
+```bash
+cat <<EOF | sudo tee /etc/sysctl.d/99-kubernetes-cri.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.ipv4.ip_forward                 = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+EOF
+```
+
+and enable the system settings:
+
+```bash
+sudo sysctl --system
+```
+
+The following guides mention CentOS, which is functionally equivalent with Rocky Linux, so I will follow the CentOS instructions.
+
+https://kubernetes.io/docs/setup/production-environment/container-runtimes/#cri-o
+
+https://computingforgeeks.com/install-cri-o-container-runtime-on-rocky-linux-almalinux/
+
+Set `$VERSION` of `cri-o` to match installed kubernetes version.
+
+```
+https://github.com/cri-o/cri-o/releases
+```
+
+```bash
+VERSION=1.23
+```
+and set `$OS` to `CentOS_8`
+
+```bash
+OS=CentOS_8
+```
+
+Then run the following commands:
+
+```bash
+sudo curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$OS/devel:kubic:libcontainers:stable.repo
+sudo curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable:cri-o:$VERSION.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:$VERSION/$OS/devel:kubic:libcontainers:stable:cri-o:$VERSION.repo
+sudo dnf install cri-o cri-tools
+```
+
+Enable and confirm crio is running:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable crio --now
+sudo systemctl status crio
+```
+
+
+### All Nodes: Enable Kubernetes Repo
+
+```bash
+cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+exclude=kubelet kubeadm kubectl
+EOF
+```
+
+### All Nodes:  Install base Kubernetes programs
+
+```bash
+sudo dnf install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+```
+
+### All Nodes:  Enable `Kubelet` on all nodes
+
+```bash
+sudo systemctl enable --now kubelet
+```
+
+!!! note
+   as per the official documentation, `The kubelet is now restarting every few seconds, as it waits in a crashloop for kubeadm to tell it what to do.`
+
+
+### Master node: kubeadm init
+
+On the master node, initialise kubeadm
+
+perform a `dry-run` first to check outputs and any errors.
+
+```bash
+sudo kubeadm init --dry-run --cri-socket=/var/run/crio-crio.sock
+```
+
+If no errors then perform the `init` command
+
+```bash
+sudo kubeadm init --cri-socket=/var/run/crio-crio.sock
+```
+
+Make note of any commands suggested in the output, especially the `kubeadm join` command, to be run on each node.
+
+You will also need to install a networking plugin.
+
+
+
 
