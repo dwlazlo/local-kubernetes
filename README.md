@@ -341,3 +341,7 @@ Check that everything is running by
 kubectl get all -n kube-system
 ```
 
+### troubleshooting
+
+- I had an error with coredns not loading. I had to run `kubeadm init` twice during setup, and had tried to install `flannel`. This led to a leftover interface assignment on the host for `cri0`, which had been given an IP by the first installation of flannel. A reboot solved the issue, but I could have removed the interface also.
+
