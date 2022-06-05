@@ -96,6 +96,8 @@ spec:
   resources:
     requests:
       storage: 3Gi
+```
+
 
 ## deploy Jenkins
 
